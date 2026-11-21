@@ -29,7 +29,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import androidx.core.content.edit
 import com.mygroup.nasugburoots.data.CurrentUser
 import com.mygroup.nasugburoots.data.Repository
 import com.mygroup.nasugburoots.data.spotReviews
@@ -46,12 +45,6 @@ fun HomeScreen(
     onLogout: () -> Unit = {}
 ) {
 
-    LaunchedEffect(userProfile) {
-        if (userProfile != null) {
-            CurrentUser.id = userProfile.userId
-        }
-    }
-
     val spots = rememberSpots()
     val guides = rememberGuides()
     val reviews = rememberReviews()
@@ -59,27 +52,7 @@ fun HomeScreen(
     var currentScreen by remember { mutableStateOf("Home") }
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val sharedPrefs = remember(context) {
-        context.getSharedPreferences("nasugbu_roots_favorites", android.content.Context.MODE_PRIVATE)
-    }
-
-    var savedSpotIds by remember {
-        val storedSet = sharedPrefs.getStringSet("saved_spot_ids", emptySet()) ?: emptySet()
-        mutableStateOf(storedSet.mapNotNull { it.toIntOrNull() }.toSet())
-    }
-
-    val toggleSaveSpot: (Int) -> Unit = remember(sharedPrefs) {
-        { id ->
-            savedSpotIds = if (id in savedSpotIds) {
-                savedSpotIds - id
-            } else {
-                savedSpotIds + id
-            }
-            val newSet = savedSpotIds.map { it.toString() }.toSet()
-            sharedPrefs.edit { putStringSet("saved_spot_ids", newSet) }
-        }
-    }
+    var savedSpotIds by remember { mutableStateOf(setOf<Int>()) }
     var exploreOverride by remember {
         mutableStateOf<List<TouristSpot>?>(null)
     }
@@ -88,10 +61,7 @@ fun HomeScreen(
     var bookingSpot by remember { mutableStateOf<TouristSpot?>(null) }
     var reviewingBooking by remember { mutableStateOf<com.mygroup.nasugburoots.model.Booking?>(null) }
     val allBookings = rememberBookings()
-    val activeUserId = userProfile?.userId ?: CurrentUser.id
-    val myBookings = remember(allBookings, activeUserId, CurrentUser.id) {
-        allBookings.filter { it.touristId == activeUserId || it.touristId == CurrentUser.id }
-    }
+    val myBookings = allBookings.filter { it.touristId == CurrentUser.id }
 
     BackHandler(enabled = selectedSpot != null || bookingSpot != null || reviewingBooking != null) {
         if (reviewingBooking != null) {
@@ -150,73 +120,20 @@ fun HomeScreen(
                         .background(Forest)
                         .padding(24.dp)
                 ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Gold.copy(alpha = 0.9f)
-                    ) {
-                        Box(
-                            modifier = Modifier.size(52.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = getInitials(userProfile?.fullName ?: ""),
-                                color = DeepForest,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp
-                            )
-                        }
-                    }
+                    Text(
+                        text = "🌴 Nasugbu Roots",
+                        color = Color.White,
+                        fontSize = 23.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(8.dp))
 
-                    if (userProfile != null) {
-                        Text(
-                            text = userProfile.fullName.ifBlank { "Nasugbu Explorer" },
-                            color = Color.White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-
-                        Text(
-                            text = userProfile.email,
-                            color = Cream.copy(alpha = 0.85f),
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-
-                        Spacer(Modifier.height(8.dp))
-
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Gold.copy(alpha = 0.25f)
-                        ) {
-                            Text(
-                                text = userProfile.role.name.replace("_", " "),
-                                color = Gold,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-                    } else {
-                        Text(
-                            text = "Nasugbu Roots",
-                            color = Color.White,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Spacer(Modifier.height(4.dp))
-
-                        Text(
-                            text = "Guest Explorer • Stories live here.",
-                            color = Cream,
-                            fontSize = 13.sp
-                        )
-                    }
+                    Text(
+                        text = "Stories live here.",
+                        color = Cream,
+                        fontSize = 14.sp
+                    )
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -257,7 +174,7 @@ fun HomeScreen(
                 Spacer(Modifier.height(8.dp))
 
                 NavigationDrawerItem(
-                    label = { Text(if (userProfile != null) "Log out" else "Log in") },
+                    label = { Text("Log out") },
                     selected = false,
                     onClick = {
                         scope.launch {
@@ -279,7 +196,6 @@ fun HomeScreen(
             topBar = {
                 if (!isDetailOrBookingScreen) {
                     BrandTopBar(
-                        userProfile = userProfile,
                         onMenuClick = {
                             scope.launch {
                                 drawerState.open()
@@ -404,7 +320,14 @@ fun HomeScreen(
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        NasugbuMapScreen()
+                        NasugbuMapScreen(
+                            spots = spots,
+                            onSpotClick = { spot ->
+                                exploreOverride = null
+                                selectedSpot = spot
+                                currentScreen = "Explore Heritage Sites"
+                            }
+                        )
                     }
                 }
 
@@ -592,7 +515,12 @@ fun HomeScreen(
                                         currentScreen = "Explore Heritage Sites"
                                     },
                                     onSave = { id ->
-                                        toggleSaveSpot(id)
+                                        savedSpotIds =
+                                            if (id in savedSpotIds) {
+                                                savedSpotIds - id
+                                            } else {
+                                                savedSpotIds + id
+                                            }
                                     },
                                     modifier = Modifier.padding(top = 14.dp)
                                 )
@@ -611,19 +539,8 @@ fun HomeScreen(
     }
 }
 
-private fun getInitials(name: String): String {
-    if (name.isBlank()) return "NR"
-    val parts = name.trim().split("\\s+".toRegex())
-    return when {
-        parts.size >= 2 -> "${parts[0].first().uppercaseChar()}${parts[1].first().uppercaseChar()}"
-        parts.size == 1 && parts[0].isNotEmpty() -> parts[0].take(2).uppercase()
-        else -> "NR"
-    }
-}
-
 @Composable
 private fun BrandTopBar(
-    userProfile: AccountProfile?,
     onMenuClick: () -> Unit
 ) {
     Surface(color = Cream) {
@@ -644,20 +561,20 @@ private fun BrandTopBar(
 
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(38.dp)
                     .clip(
                         RoundedCornerShape(
                             13.dp, 13.dp, 13.dp, 4.dp
                         )
                     )
-                    .background(Color.White),
+                    .background(Forest),
                 contentAlignment = Alignment.Center
             ) {
-                androidx.compose.foundation.Image(
-                    painter = androidx.compose.ui.res.painterResource(id = com.mygroup.nasugburoots.R.drawable.ic_app_logo),
+                Icon(
+                    Icons.Filled.Eco,
                     contentDescription = "Nasugbu Roots logo",
-                    modifier = Modifier.fillMaxSize().padding(2.dp),
-                    contentScale = ContentScale.Fit
+                    tint = Gold,
+                    modifier = Modifier.size(25.dp)
                 )
             }
 
@@ -684,15 +601,14 @@ private fun BrandTopBar(
 
             Surface(
                 shape = CircleShape,
-                color = Color(0xFFE8DCB9),
-                modifier = Modifier.clickable(onClick = onMenuClick)
+                color = Color(0xFFE8DCB9)
             ) {
                 Box(
                     modifier = Modifier.size(38.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = getInitials(userProfile?.fullName ?: ""),
+                        "NR",
                         color = Forest,
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp
