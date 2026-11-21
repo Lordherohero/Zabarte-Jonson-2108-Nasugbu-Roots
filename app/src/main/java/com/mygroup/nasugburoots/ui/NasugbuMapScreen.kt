@@ -1,6 +1,7 @@
 package com.mygroup.nasugburoots.ui
 
 import android.app.Application
+import android.graphics.Color
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -12,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.mygroup.nasugburoots.data.sampleSpots
 import com.mygroup.nasugburoots.model.TouristSpot
 import org.mapsforge.core.model.LatLong
 import org.mapsforge.map.android.graphics.AndroidGraphicFactory
@@ -30,12 +32,22 @@ private fun addMarker(
     markers: MutableList<View>,
     latitude: Double,
     longitude: Double,
+    title: String,
+    isFocused: Boolean = false,
     onClick: () -> Unit
 ) {
     val marker = TextView(mapView.context).apply {
-        text = "📍"
-        textSize = 32f
-        setPadding(8, 8, 8, 8)
+        text = if (isFocused) "📍 $title" else "📍 $title"
+        textSize = if (isFocused) 15f else 12f
+        if (isFocused) {
+            setBackgroundColor(Color.argb(230, 25, 54, 45))
+            setTextColor(Color.WHITE)
+            setPadding(16, 10, 16, 10)
+        } else {
+            setBackgroundColor(Color.argb(210, 255, 255, 255))
+            setTextColor(Color.rgb(25, 54, 45))
+            setPadding(10, 6, 10, 6)
+        }
         setOnClickListener {
             onClick()
         }
@@ -57,11 +69,12 @@ private fun addMarker(
 @Composable
 fun NasugbuMapScreen(
     spots: List<TouristSpot> = emptyList(),
+    focusedSpot: TouristSpot? = null,
     onSpotClick: (TouristSpot) -> Unit = {}
 ) {
     val mapViewState = remember { mutableStateOf<MapView?>(null) }
     val markers = remember { mutableListOf<View>() }
-    val fitted = remember { booleanArrayOf(false) }
+    val lastCenteredSpotId = remember { mutableStateOf<Int?>(null) }
 
     AndroidView(
         modifier = Modifier.fillMaxSize(),
@@ -102,8 +115,12 @@ fun NasugbuMapScreen(
                 mapLayer.setXmlRenderTheme(MapsforgeThemes.DEFAULT)
                 mapView.layerManager.layers.add(mapLayer)
 
-                mapView.setCenter(LatLong(14.07125, 120.62498))
-                mapView.setZoomLevel(14)
+                val initialLat = focusedSpot?.latitude ?: 14.07125
+                val initialLon = focusedSpot?.longitude ?: 120.62498
+                val initialZoom = if (focusedSpot != null) 16 else 13
+
+                mapView.setCenter(LatLong(initialLat, initialLon))
+                mapView.setZoomLevel(initialZoom.toByte())
                 mapView.setBuiltInZoomControls(true)
                 mapView.mapScaleBar.isVisible = true
                 mapView
@@ -120,28 +137,28 @@ fun NasugbuMapScreen(
                 }
                 markers.clear()
 
-                if (spots.isEmpty()) {
-                    addMarker(view, markers, 14.07125, 120.62498) {
-                        Toast.makeText(
-                            view.context,
-                            "Nasugbu Landing Monument",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                } else {
-                    spots.forEach { spot ->
-                        addMarker(view, markers, spot.latitude, spot.longitude) {
-                            onSpotClick(spot)
-                        }
-                    }
+                val displaySpots = if (spots.isEmpty()) sampleSpots else spots
 
-                    if (!fitted[0]) {
-                        val centerLat = spots.map { it.latitude }.average()
-                        val centerLon = spots.map { it.longitude }.average()
-                        view.setCenter(LatLong(centerLat, centerLon))
-                        view.setZoomLevel(12)
-                        fitted[0] = true
+                displaySpots.forEach { spot ->
+                    val isFocused = focusedSpot != null && spot.placeId == focusedSpot.placeId
+                    addMarker(
+                        mapView = view,
+                        markers = markers,
+                        latitude = spot.latitude,
+                        longitude = spot.longitude,
+                        title = spot.placeName,
+                        isFocused = isFocused
+                    ) {
+                        Toast.makeText(view.context, spot.placeName, Toast.LENGTH_SHORT).show()
+                        onSpotClick(spot)
                     }
+                }
+
+                val target = focusedSpot
+                if (target != null && lastCenteredSpotId.value != target.placeId) {
+                    lastCenteredSpotId.value = target.placeId
+                    view.setCenter(LatLong(target.latitude, target.longitude))
+                    view.setZoomLevel(16.toByte())
                 }
             }
         }

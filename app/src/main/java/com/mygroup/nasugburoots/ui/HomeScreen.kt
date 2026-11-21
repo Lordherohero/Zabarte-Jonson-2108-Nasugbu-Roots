@@ -59,6 +59,7 @@ fun HomeScreen(
     var selectedSpot by remember { mutableStateOf<TouristSpot?>(null) }
 
     var bookingSpot by remember { mutableStateOf<TouristSpot?>(null) }
+    var mapSpot by remember { mutableStateOf<TouristSpot?>(null) }
     var reviewingBooking by remember { mutableStateOf<com.mygroup.nasugburoots.model.Booking?>(null) }
     val allBookings = rememberBookings()
     val myBookings = allBookings.filter { it.touristId == CurrentUser.id }
@@ -294,7 +295,8 @@ fun HomeScreen(
                                     onBookNow = { spot ->
                                         bookingSpot = spot
                                     },
-                                    onOpenMap = {
+                                    onOpenMap = { spot ->
+                                        mapSpot = spot
                                         selectedSpot = null
                                         bookingSpot = null
                                         currentScreen = "Explore Map"
@@ -322,9 +324,11 @@ fun HomeScreen(
                     ) {
                         NasugbuMapScreen(
                             spots = spots,
+                            focusedSpot = mapSpot,
                             onSpotClick = { spot ->
                                 exploreOverride = null
                                 selectedSpot = spot
+                                mapSpot = null
                                 currentScreen = "Explore Heritage Sites"
                             }
                         )
