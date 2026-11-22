@@ -41,8 +41,7 @@ import com.mygroup.nasugburoots.ui.theme.Muted
 fun LoginScreen(
     onLogin: (LoginFormState) -> Unit,
     onRegister: () -> Unit,
-    onForgotPassword: () -> Unit,
-    onSkip: () -> Unit
+    onForgotPassword: () -> Unit
 ) {
     var form by remember { mutableStateOf(LoginFormState()) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -206,19 +205,6 @@ fun LoginScreen(
                     }
                 }
             )
-
-            Spacer(Modifier.height(8.dp))
-
-            TextButton(
-                onClick = onSkip,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    "Skip for Testing",
-                    color = Forest,
-                    fontWeight = FontWeight.Bold
-                )
-            }
 
             Row(
                 modifier = Modifier

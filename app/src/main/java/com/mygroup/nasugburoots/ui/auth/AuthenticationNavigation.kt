@@ -114,9 +114,6 @@ fun NasugbuRootsAuthApp() {
                     },
                     onForgotPassword = {
                         destination = AuthDestination.FORGOT_PASSWORD
-                    },
-                    onSkip = {
-                        destination = AuthDestination.HOME
                     }
                 )
             }
