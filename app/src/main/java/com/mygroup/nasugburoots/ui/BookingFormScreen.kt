@@ -54,6 +54,7 @@ fun BookingFormScreen(
 ) {
     var date by remember { mutableStateOf("") }
     var hours by remember { mutableStateOf(1) }
+    var visitors by remember { mutableStateOf(1) }
     var selectedGuide by remember { mutableStateOf<Guide?>(null) }
     var showPicker by remember { mutableStateOf(false) }
 
@@ -67,7 +68,7 @@ fun BookingFormScreen(
 
     val guide = selectedGuide
     val guideRate = if (guide != null) guide.ratePerHour else 0.0
-    val total = spot.entryFee + guideRate * hours
+    val total = spot.entryFee * visitors + guideRate * hours
 
     val problem = if (date.isBlank()) {
         ""
@@ -122,6 +123,27 @@ fun BookingFormScreen(
             OutlinedButton(onClick = { if (hours < 12) hours = hours + 1 }) {
                 Text("+")
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(text = "Visitors", fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = { if (visitors > 1) visitors = visitors - 1 }) {
+                Text("-")
+            }
+            Text(
+                text = "  $visitors  ",
+                fontSize = 18.sp
+            )
+            OutlinedButton(onClick = { if (visitors < 20) visitors = visitors + 1 }) {
+                Text("+")
+            }
+        }
+        if (spot.entryFee > 0) {
+            Text(
+                text = "Entry fee: PHP ${spot.entryFee} per person",
+                fontSize = 12.sp
+            )
         }
 
         if (spot.allowsGuides) {
@@ -182,6 +204,7 @@ fun BookingFormScreen(
                     hours = hours,
                     guideRate = guideRate,
                     placeFee = spot.entryFee,
+                    visitors = visitors,
                     status = if (guide == null) BookingStatus.CONFIRMED else BookingStatus.PENDING
                 )
                 onConfirm(booking)

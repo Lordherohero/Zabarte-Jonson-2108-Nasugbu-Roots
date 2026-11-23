@@ -9,19 +9,22 @@ data class Booking(
     val hours: Int = 1,
     val guideRate: Double = 0.0,
     val placeFee: Double = 0.0,
+    val visitors: Int = 1,
     var status: BookingStatus = BookingStatus.PENDING
 ) {
     init {
         require(hours > 0) { "Hours must be positive" }
+        require(visitors > 0) { "Visitors must be positive" }
         require(guideRate >= 0.0) { "Guide rate cannot be negative" }
         require(placeFee >= 0.0) { "Place fee cannot be negative" }
     }
 
     fun totalCost(): Double {
+        val entryTotal = placeFee * visitors
         if (guideId != null) {
-            return placeFee + guideRate * hours
+            return entryTotal + guideRate * hours
         }
-        return placeFee
+        return entryTotal
     }
 
     fun confirmBooking() {
@@ -49,6 +52,7 @@ data class Booking(
         }
         println("Date: $date")
         println("Hours: $hours")
+        println("Visitors: $visitors")
         println("Status: ${status.label}")
         println("Total Cost: ${totalCost()}")
     }

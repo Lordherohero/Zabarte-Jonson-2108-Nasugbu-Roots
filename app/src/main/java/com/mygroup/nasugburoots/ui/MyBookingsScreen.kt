@@ -102,7 +102,6 @@ fun MyBookingsScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-
         Text(
             text = "My Visits",
             style = MaterialTheme.typography.headlineMedium,
@@ -300,6 +299,7 @@ private fun BookingCard(
 
             Text(text = "Visit date: ${booking.date}")
             Text(text = "Duration: ${booking.hours} hour(s)")
+            Text(text = "Visitors: ${booking.visitors}")
             Text(text = "Guide: $guideName")
 
             Spacer(modifier = Modifier.height(8.dp))

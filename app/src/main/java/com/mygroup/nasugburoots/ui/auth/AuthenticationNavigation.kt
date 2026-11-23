@@ -10,7 +10,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.mygroup.nasugburoots.data.UserRepository
+import com.mygroup.nasugburoots.ui.GuideDashboardScreen
 import com.mygroup.nasugburoots.ui.HomeScreen
+import com.mygroup.nasugburoots.ui.ManagerDashboardScreen
+import com.mygroup.nasugburoots.ui.OwnerHomeScreen
 import kotlinx.coroutines.launch
 import com.mygroup.nasugburoots.data.CurrentUser
 
@@ -280,16 +283,27 @@ fun NasugbuRootsAuthApp() {
             }
 
             AuthDestination.HOME -> {
-                HomeScreen(
-                    userProfile = loggedInProfile,
-                    onLogout = {
-                        UserRepository.signOut()
-                        CurrentUser.reset()
-                        loggedInProfile = null
-                        registrationForm = RegistrationFormState()
-                        destination = AuthDestination.LOGIN
-                    }
-                )
+                val profile = loggedInProfile
+                val logout: () -> Unit = {
+                    UserRepository.signOut()
+                    CurrentUser.reset()
+                    loggedInProfile = null
+                    registrationForm = RegistrationFormState()
+                    destination = AuthDestination.LOGIN
+                }
+
+                if (profile != null && profile.role == AccountRole.LOCAL_GUIDE) {
+                    GuideDashboardScreen(profile = profile, onLogout = logout)
+                } else if (profile != null && profile.role == AccountRole.ADMIN) {
+                    ManagerDashboardScreen(profile = profile, onLogout = logout)
+                } else if (profile != null && profile.role == AccountRole.SITE_OWNER) {
+                    OwnerHomeScreen(profile = profile, onLogout = logout)
+                } else {
+                    HomeScreen(
+                        userProfile = profile,
+                        onLogout = logout
+                    )
+                }
             }
         }
 

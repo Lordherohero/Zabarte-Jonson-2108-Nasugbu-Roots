@@ -5,7 +5,8 @@ data class Guide(
     val name: String = "",
     val languages: String = "",
     val ratePerHour: Double = 0.0,
-    val verified: Boolean = false
+    val verified: Boolean = false,
+    val userId: String = ""
 ) {
     init {
         require(ratePerHour >= 0.0) { "Rate per hour cannot be negative" }
