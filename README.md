@@ -6,7 +6,8 @@ What the app does
 - Browse heritage spots on the home screen, filter by category, and search by name
 - See each spot's details: category, description, entry fee, availability, guide policy, coordinates, and reviews with an average rating
 - Explore an offline map with a pin for every spot, and tap a pin to open that spot
-- Book a visit: choose a date (past dates are disabled), 1 to 12 hours, and an optional guide
+- Book a visit: choose a date (past dates are disabled), 1 to 12 hours, the number of visitors, and an optional guide
+- The entry fee is charged per person, and the guide fee per hour
 - Booking rules: a spot cannot be booked twice on the same date, and a guide cannot be booked for two places on the same date
 - A booking without a guide is confirmed at once, and a guided booking starts as pending
 - My Visits lists bookings as Upcoming, Completed, or Cancelled, and lets you cancel
@@ -38,8 +39,6 @@ ui: HomeScreen, DestinationDetailsScreen, BookingFormScreen, MyBookingsScreen, R
 ui.auth: AuthenticationNavigation, AuthenticationModel, login and registration screens
 
 limitations
-- Guide, owner, and manager screens are not in the Android app, so guided bookings stay pending
-- The entry fee is charged once per booking, not per person
 - Saved spots are kept only while the app is open
 - Password reset and the Find Tour Guides page are placeholders
 - The Firestore database uses development (test mode) rules
