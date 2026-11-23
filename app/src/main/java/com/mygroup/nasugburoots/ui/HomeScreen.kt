@@ -694,9 +694,9 @@ private fun BrandTopBar(
             Spacer(Modifier.weight(1f))
 
             Surface(
+                onClick = onMenuClick,
                 shape = CircleShape,
-                color = Color(0xFFE8DCB9),
-                modifier = Modifier.clickable(onClick = onMenuClick)
+                color = Color(0xFFE8DCB9)
             ) {
                 Box(
                     modifier = Modifier.size(38.dp),
