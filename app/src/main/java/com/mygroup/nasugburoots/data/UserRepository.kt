@@ -175,18 +175,40 @@ object UserRepository {
                     }
 
                     try {
+                        val rawRole = document.getString("role") ?: ""
+                        val rawStatus = document.getString("status") ?: ""
+
+                        val parsedRole = if (rawRole.isNotBlank()) {
+                            try {
+                                AccountRole.valueOf(rawRole.uppercase().trim().replace(" ", "_"))
+                            } catch (e: Exception) {
+                                when (rawRole.uppercase().trim()) {
+                                    "ADMINISTRATOR", "ADMIN" -> AccountRole.ADMIN
+                                    "LOCAL_GUIDE", "LOCAL GUIDE", "GUIDE" -> AccountRole.LOCAL_GUIDE
+                                    "SITE_OWNER", "SITE OWNER", "OWNER", "MANAGER" -> AccountRole.SITE_OWNER
+                                    else -> AccountRole.TOURIST
+                                }
+                            }
+                        } else {
+                            AccountRole.TOURIST
+                        }
+
+                        val parsedStatus = if (rawStatus.isNotBlank()) {
+                            try {
+                                AccountStatus.valueOf(rawStatus.uppercase().trim().replace(" ", "_"))
+                            } catch (e: Exception) {
+                                AccountStatus.ACTIVE
+                            }
+                        } else {
+                            AccountStatus.ACTIVE
+                        }
+
                         val profile = AccountProfile(
                             userId = uid,
                             fullName = document.getString("fullName") ?: "",
                             email = document.getString("email") ?: "",
-                            role = AccountRole.valueOf(
-                                document.getString("role")
-                                    ?: throw IllegalStateException("Missing user role.")
-                            ),
-                            status = AccountStatus.valueOf(
-                                document.getString("status")
-                                    ?: throw IllegalStateException("Missing account status.")
-                            )
+                            role = parsedRole,
+                            status = parsedStatus
                         )
 
                         onComplete(Result.success(profile))
