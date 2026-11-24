@@ -589,6 +589,7 @@ private fun GuideBookingCard(
                 color = when (booking.status) {
                     BookingStatus.PENDING -> Color(0xFFB7791F)
                     BookingStatus.CONFIRMED -> Forest
+                    BookingStatus.COMPLETED -> Color(0xFF2E7D32)
                     BookingStatus.CANCELLED -> Color(0xFFB3261E)
                 },
                 fontWeight = FontWeight.Bold,

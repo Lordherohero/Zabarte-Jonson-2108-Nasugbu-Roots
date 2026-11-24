@@ -13,7 +13,8 @@ data class TouristSpot(
     val ownerId: Int = 0,
     var verified: Boolean = false,
     var entryFee: Double = 0.0,
-    var locationAddress: String = ""
+    var locationAddress: String = "",
+    val ownerUid: String = ""
 ) : Searchable {
 
     init {

@@ -1,3 +1,4 @@
+
 package com.mygroup.nasugburoots.model
 
 enum class Role(val label: String) {
@@ -10,5 +11,6 @@ enum class Role(val label: String) {
 enum class BookingStatus(val label: String) {
     PENDING("Pending"),
     CONFIRMED("Confirmed"),
+    COMPLETED("Completed"),
     CANCELLED("Cancelled")
 }

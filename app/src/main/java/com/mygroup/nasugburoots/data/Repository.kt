@@ -1,156 +1,455 @@
+
 package com.mygroup.nasugburoots.data
 
 import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.mygroup.nasugburoots.model.Booking
-import com.mygroup.nasugburoots.model.BookingStatus
-import com.mygroup.nasugburoots.model.Guide
 import com.mygroup.nasugburoots.model.Review
 import com.mygroup.nasugburoots.model.TouristSpot
+import com.mygroup.nasugburoots.model.Guide
+import com.mygroup.nasugburoots.model.BookingStatus
 
 object Repository {
 
     private const val TAG = "Repository"
+
     private var seedStarted = false
 
     private val db: FirebaseFirestore
         get() = FirebaseFirestore.getInstance()
 
+    // --------------------------------------------------
+    // SEED SAMPLE DATA
+    // --------------------------------------------------
+
     fun seedIfEmpty() {
-        if (seedStarted) {
-            return
-        }
+        if (seedStarted) return
+
         seedStarted = true
 
-        val batch = db.batch()
-        sampleSpots.forEach { spot ->
-            batch.set(db.collection("spots").document(spot.placeId.toString()), spot)
-        }
-        sampleGuides.forEach { guide ->
-            batch.set(db.collection("guides").document(guide.guideId.toString()), guide)
-        }
-        batch.commit()
-            .addOnSuccessListener { Log.d(TAG, "Sample spots and guides updated in Firestore") }
-            .addOnFailureListener { Log.e(TAG, "Seeding failed", it) }
-    }
+        db.collection("spots")
+            .get()
+            .addOnSuccessListener { snapshot ->
 
-    fun listenToSpots(onChange: (List<TouristSpot>) -> Unit): ListenerRegistration {
-        return db.collection("spots").addSnapshotListener { snapshot, error ->
-            if (error != null || snapshot == null) {
-                Log.e(TAG, "Spots listener failed", error)
-                return@addSnapshotListener
-            }
-            try {
-                val spots = snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(TouristSpot::class.java)
-                }
-                onChange(spots.sortedBy { it.placeId })
-            } catch (e: Exception) {
-                Log.e(TAG, "Could not read spots", e)
-            }
-        }
-    }
+                val existingSpotIds = snapshot.documents
+                    .map { it.id }
+                    .toSet()
 
-    fun listenToGuides(onChange: (List<Guide>) -> Unit): ListenerRegistration {
-        return db.collection("guides").addSnapshotListener { snapshot, error ->
-            if (error != null || snapshot == null) {
-                Log.e(TAG, "Guides listener failed", error)
-                return@addSnapshotListener
-            }
-            try {
-                val guides = snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Guide::class.java)
-                }
-                onChange(guides.sortedBy { it.guideId })
-            } catch (e: Exception) {
-                Log.e(TAG, "Could not read guides", e)
-            }
-        }
-    }
+                val batch = db.batch()
+                var addedCount = 0
 
-    fun listenToBookings(onChange: (List<Booking>) -> Unit): ListenerRegistration {
-        return db.collection("bookings").addSnapshotListener { snapshot, error ->
-            if (error != null || snapshot == null) {
-                Log.e(TAG, "Bookings listener failed", error)
-                return@addSnapshotListener
-            }
-            val bookings = snapshot.documents.mapNotNull { doc ->
-                try {
-                    doc.toObject(Booking::class.java)?.copy(bookingId = doc.id)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Standard toObject failed for booking ${doc.id}, trying fallback parse", e)
-                    try {
-                        val placeId = (doc.getLong("placeId") ?: 0L).toInt()
-                        val touristId = doc.getString("touristId") ?: ""
-                        val guideId = doc.getLong("guideId")?.toInt()
-                        val date = doc.getString("date") ?: ""
-                        val hours = (doc.getLong("hours") ?: 1L).toInt()
-                        val guideRate = doc.getDouble("guideRate") ?: 0.0
-                        val placeFee = doc.getDouble("placeFee") ?: 0.0
-                        val statusStr = doc.getString("status") ?: "PENDING"
-                        val status = try {
-                            BookingStatus.valueOf(statusStr.uppercase())
-                        } catch (_: Exception) {
-                            when (statusStr.lowercase()) {
-                                "confirmed" -> BookingStatus.CONFIRMED
-                                "cancelled" -> BookingStatus.CANCELLED
-                                else -> BookingStatus.PENDING
-                            }
-                        }
-                        Booking(
-                            bookingId = doc.id,
-                            placeId = placeId,
-                            touristId = touristId,
-                            guideId = guideId,
-                            date = date,
-                            hours = if (hours > 0) hours else 1,
-                            guideRate = if (guideRate >= 0.0) guideRate else 0.0,
-                            placeFee = if (placeFee >= 0.0) placeFee else 0.0,
-                            status = status
-                        )
-                    } catch (fallbackErr: Exception) {
-                        Log.e(TAG, "Manual parse failed for booking ${doc.id}", fallbackErr)
-                        null
+                sampleSpots.forEach { spot ->
+
+                    val documentId = spot.placeId.toString()
+
+                    if (documentId !in existingSpotIds) {
+                        val document = db.collection("spots")
+                            .document(documentId)
+
+                        batch.set(document, spot)
+                        addedCount++
                     }
                 }
+
+                if (addedCount == 0) {
+                    Log.d(TAG, "Sample spots already exist.")
+                    return@addOnSuccessListener
+                }
+
+                batch.commit()
+                    .addOnSuccessListener {
+                        Log.d(
+                            TAG,
+                            "Successfully added $addedCount sample spots."
+                        )
+                    }
+                    .addOnFailureListener { error ->
+                        Log.e(
+                            TAG,
+                            "Failed to seed sample spots.",
+                            error
+                        )
+                        seedStarted = false
+                    }
             }
-            onChange(bookings.sortedBy { it.date })
+            .addOnFailureListener { error ->
+                Log.e(
+                    TAG,
+                    "Failed to check existing spots.",
+                    error
+                )
+                seedStarted = false
+            }
+    }
+
+    // --------------------------------------------------
+    // ASSIGN SAMPLE SPOTS TO SITE OWNER
+    // --------------------------------------------------
+
+    fun assignSampleSpotsToOwner(
+        ownerUid: String,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        if (ownerUid.isBlank()) {
+            onComplete(false, "Invalid owner account.")
+            return
         }
+
+        val spotIds = listOf("1", "2", "3", "4", "5")
+
+        db.collection("spots")
+            .whereIn("placeId", listOf(1, 2, 3, 4, 5))
+            .get()
+            .addOnSuccessListener { snapshot ->
+
+                val documents = snapshot.documents
+
+                if (documents.size != 5) {
+                    onComplete(
+                        false,
+                        "Some sample spots are missing. No changes were made."
+                    )
+                    return@addOnSuccessListener
+                }
+
+                val invalidSpot = documents.any { document ->
+
+                    val currentOwnerId =
+                        document.getLong("ownerId")?.toInt()
+
+                    val currentOwnerUid =
+                        document.getString("ownerUid").orEmpty()
+
+                    document.id !in spotIds ||
+                            currentOwnerId != 4 ||
+                            (
+                                    currentOwnerUid.isNotBlank() &&
+                                            currentOwnerUid != ownerUid
+                                    )
+                }
+
+                if (invalidSpot) {
+                    onComplete(
+                        false,
+                        "Ownership check failed. No changes were made."
+                    )
+                    return@addOnSuccessListener
+                }
+
+                val batch = db.batch()
+
+                documents.forEach { document ->
+                    batch.update(
+                        document.reference,
+                        "ownerUid",
+                        ownerUid
+                    )
+                }
+
+                batch.commit()
+                    .addOnSuccessListener {
+                        Log.d(
+                            TAG,
+                            "Sample spot ownership updated."
+                        )
+
+                        onComplete(
+                            true,
+                            "All five sample spots are now assigned to your account."
+                        )
+                    }
+                    .addOnFailureListener { error ->
+                        Log.e(
+                            TAG,
+                            "Ownership update failed.",
+                            error
+                        )
+
+                        onComplete(
+                            false,
+                            "Failed to update spot ownership."
+                        )
+                    }
+            }
+            .addOnFailureListener { error ->
+                Log.e(
+                    TAG,
+                    "Failed to check sample spot ownership.",
+                    error
+                )
+
+                onComplete(
+                    false,
+                    "Could not access the spots collection."
+                )
+            }
+    }
+
+    // --------------------------------------------------
+    // TOURIST SPOTS
+    // --------------------------------------------------
+
+    fun listenToSpots(
+        onChange: (List<TouristSpot>) -> Unit
+    ): ListenerRegistration {
+
+        return db.collection("spots")
+            .addSnapshotListener { snapshot, error ->
+
+                if (error != null) {
+                    Log.e(TAG, "Error listening to spots.", error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+
+                    val spots = snapshot.documents.mapNotNull { document ->
+                        document.toObject(TouristSpot::class.java)
+                    }
+
+                    onChange(
+                        spots.sortedBy { it.placeId }
+                    )
+                }
+            }
+    }
+
+    // --------------------------------------------------
+    // UPDATE EXISTING TOURIST SPOT
+    // --------------------------------------------------
+
+    fun updateTouristSpot(
+        spot: TouristSpot,
+        ownerUid: String,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        if (ownerUid.isBlank()) {
+            onComplete(false, "Invalid owner account.")
+            return
+        }
+
+        if (spot.placeName.isBlank()) {
+            onComplete(false, "Site name cannot be empty.")
+            return
+        }
+
+        if (spot.entryFee < 0.0) {
+            onComplete(false, "Entry fee cannot be negative.")
+            return
+        }
+
+        val document = db.collection("spots")
+            .document(spot.placeId.toString())
+
+        document.get()
+            .addOnSuccessListener { snapshot ->
+
+                if (!snapshot.exists()) {
+                    onComplete(false, "Heritage site not found.")
+                    return@addOnSuccessListener
+                }
+
+                val currentOwnerUid =
+                    snapshot.getString("ownerUid").orEmpty()
+
+                if (currentOwnerUid != ownerUid) {
+                    onComplete(
+                        false,
+                        "You are not authorized to edit this site."
+                    )
+                    return@addOnSuccessListener
+                }
+
+                val updates = mapOf(
+                    "placeName" to spot.placeName,
+                    "description" to spot.description,
+                    "category" to spot.category,
+                    "locationAddress" to spot.locationAddress,
+                    "entryFee" to spot.entryFee,
+                    "allowsGuides" to spot.allowsGuides,
+                    "availability" to spot.availability
+                )
+
+                document.update(updates)
+                    .addOnSuccessListener {
+                        Log.d(
+                            TAG,
+                            "Heritage site successfully updated."
+                        )
+
+                        onComplete(
+                            true,
+                            "Heritage site updated successfully."
+                        )
+                    }
+                    .addOnFailureListener { error ->
+                        Log.e(
+                            TAG,
+                            "Failed to update heritage site.",
+                            error
+                        )
+
+                        onComplete(
+                            false,
+                            "Failed to save changes."
+                        )
+                    }
+            }
+            .addOnFailureListener { error ->
+                Log.e(
+                    TAG,
+                    "Failed to verify site ownership.",
+                    error
+                )
+
+                onComplete(
+                    false,
+                    "Could not verify site ownership."
+                )
+            }
+    }
+
+    // --------------------------------------------------
+    // GUIDES
+    // --------------------------------------------------
+
+    fun listenToGuides(
+        onChange: (List<Guide>) -> Unit
+    ): ListenerRegistration {
+
+        return db.collection("guides")
+            .addSnapshotListener { snapshot, error ->
+
+                if (error != null) {
+                    Log.e(TAG, "Error listening to guides.", error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+
+                    val guides = snapshot.documents.mapNotNull { document ->
+                        document.toObject(Guide::class.java)
+                    }
+
+                    onChange(
+                        guides.sortedBy { it.guideId }
+                    )
+                }
+            }
+    }
+
+    // --------------------------------------------------
+    // BOOKINGS
+    // --------------------------------------------------
+
+    fun listenToBookings(
+        onChange: (List<Booking>) -> Unit
+    ): ListenerRegistration {
+
+        return db.collection("bookings")
+            .addSnapshotListener { snapshot, error ->
+
+                if (error != null) {
+                    Log.e(TAG, "Error listening to bookings.", error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+
+                    val bookings = snapshot.documents.mapNotNull { document ->
+                        document.toObject(Booking::class.java)
+                            ?.copy(bookingId = document.id)
+                    }
+
+                    onChange(bookings)
+                }
+            }
     }
 
     fun addBooking(booking: Booking) {
-        val document = db.collection("bookings").document()
-        document.set(booking.copy(bookingId = document.id))
-            .addOnFailureListener { Log.e(TAG, "Could not save booking", it) }
-    }
 
-    fun updateBookingStatus(bookingId: String, status: BookingStatus) {
-        db.collection("bookings").document(bookingId)
-            .update("status", status.name)
-            .addOnFailureListener { Log.e(TAG, "Could not update booking", it) }
-    }
-
-    fun listenToReviews(onChange: (List<Review>) -> Unit): ListenerRegistration {
-        return db.collection("reviews").addSnapshotListener { snapshot, error ->
-            if (error != null || snapshot == null) {
-                Log.e(TAG, "Reviews listener failed", error)
-                return@addSnapshotListener
-            }
-            try {
-                val reviews = snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(Review::class.java)?.copy(reviewId = doc.id)
-                }
-                onChange(reviews.sortedByDescending { it.date })
-            } catch (e: Exception) {
-                Log.e(TAG, "Could not read reviews", e)
-            }
+        val documentId = if (booking.bookingId.isBlank()) {
+            db.collection("bookings").document().id
+        } else {
+            booking.bookingId
         }
+
+        db.collection("bookings")
+            .document(documentId)
+            .set(booking.copy(bookingId = documentId))
+            .addOnSuccessListener {
+                Log.d(TAG, "Booking successfully added.")
+            }
+            .addOnFailureListener { error ->
+                Log.e(TAG, "Failed to add booking.", error)
+            }
+    }
+
+    fun updateBookingStatus(
+        bookingId: String,
+        status: BookingStatus
+    ) {
+
+        db.collection("bookings")
+            .document(bookingId)
+            .update("status", status.name)
+            .addOnSuccessListener {
+                Log.d(TAG, "Booking status successfully updated.")
+            }
+            .addOnFailureListener { error ->
+                Log.e(
+                    TAG,
+                    "Failed to update booking status.",
+                    error
+                )
+            }
+    }
+
+    // --------------------------------------------------
+    // REVIEWS
+    // --------------------------------------------------
+
+    fun listenToReviews(
+        onChange: (List<Review>) -> Unit
+    ): ListenerRegistration {
+
+        return db.collection("reviews")
+            .addSnapshotListener { snapshot, error ->
+
+                if (error != null) {
+                    Log.e(TAG, "Error listening to reviews.", error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+
+                    val reviews = snapshot.documents.mapNotNull { document ->
+                        document.toObject(Review::class.java)
+                            ?.copy(reviewId = document.id)
+                    }
+
+                    onChange(reviews)
+                }
+            }
     }
 
     fun addReview(review: Review) {
-        val document = db.collection("reviews").document()
-        document.set(review.copy(reviewId = document.id))
-            .addOnFailureListener { Log.e(TAG, "Could not save review", it) }
+
+        val documentId = if (review.reviewId.toString().isBlank()) {
+            db.collection("reviews").document().id
+        } else {
+            review.reviewId.toString()
+        }
+
+        db.collection("reviews")
+            .document(documentId)
+            .set(review)
+            .addOnSuccessListener {
+                Log.d(TAG, "Review successfully added.")
+            }
+            .addOnFailureListener { error ->
+                Log.e(TAG, "Failed to add review.", error)
+            }
     }
 }

@@ -1,6 +1,9 @@
+
+package com.mygroup.nasugburoots.model
+
 data class Review(
-    val reviewId: Int = 0,
-    val userId: Int = 0,
+    val reviewId: String = "",
+    val userId: String = "",
     val placeId: Int = 0,
     val guideId: Int? = null,
     val rating: Double = 0.0,
