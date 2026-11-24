@@ -226,10 +226,8 @@ fun HomeScreen(
                     "Home",
                     "Explore Heritage Sites",
                     "Explore Map",
-                    "Find Tour Guides",
                     "My Bookings",
-                    "Favorites",
-                    "About Us"
+                    "Favorites"
                 )
 
                 menuItems.forEach { item ->
@@ -443,19 +441,6 @@ fun HomeScreen(
                     }
                 }
 
-                "Find Tour Guides" -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        EmptyPage(
-                            title = "Find Local Guides",
-                            message = "Discover local tour guides in Nasugbu. This feature is coming soon."
-                        )
-                    }
-                }
-
                 "My Bookings" -> {
                     Box(
                         modifier = Modifier
@@ -497,19 +482,6 @@ fun HomeScreen(
                     }
                 }
 
-                "About Us" -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        EmptyPage(
-                            title = "About Nasugbu Roots",
-                            message = "Preserving our roots, one journey at a time."
-                        )
-                    }
-                }
-
                 else -> {
 
                     LazyColumn(
@@ -545,8 +517,8 @@ fun HomeScreen(
                                 onNearby = {
                                     currentScreen = "Explore Map"
                                 },
-                                onGuides = {
-                                    currentScreen = "Find Tour Guides"
+                                onVisits = {
+                                    currentScreen = "My Bookings"
                                 },
                                 onTrails = {
                                     exploreOverride = spots.filter {
@@ -852,7 +824,7 @@ private fun SearchField(
 @Composable
 private fun QuickActions(
     onNearby: () -> Unit,
-    onGuides: () -> Unit,
+    onVisits: () -> Unit,
     onTrails: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -871,12 +843,12 @@ private fun QuickActions(
         )
 
         QuickAction(
-            Icons.Outlined.PersonPinCircle,
-            "Local guides",
-            "Meet a local",
+            Icons.Outlined.CalendarMonth,
+            "My Visits",
+            "View bookings",
             Color(0xFFFBECD1),
             Color(0xFF9B611D),
-            onGuides,
+            onVisits,
             Modifier.weight(1f)
         )
 
